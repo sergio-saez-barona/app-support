@@ -1,0 +1,19 @@
+{
+  "name": "ssaezba/appsupport",
+  "require": {
+    "php": ">=8.0",
+    "psr/log": "^3.0",
+    "ext-mbstring": "*"
+  },
+  "autoload": {
+    "files": [
+      "src/Support/helpers.php"
+    ],
+    "psr-4": {
+      "AppSupport\\": "src"
+    }
+  },
+  "version": "0.0.2",
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
