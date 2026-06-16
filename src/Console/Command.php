@@ -188,7 +188,14 @@ abstract class Command extends CLIItem
     public function loadOptions(array $definitions): void
     {
         foreach ($definitions as $definitionKey => $definitionData) {
-            $definition = new Value($definitionKey);
+            // Support "short|long" syntax for short name aliases
+            $shortName = "";
+            $longName = $definitionKey;
+            if (str_contains($definitionKey, '|')) {
+                [$shortName, $longName] = explode('|', $definitionKey, 2);
+            }
+
+            $definition = new Value($longName, $shortName);
 
             if (is_array($definitionData)) {
                 $definitionDefault = $definitionData[0];
