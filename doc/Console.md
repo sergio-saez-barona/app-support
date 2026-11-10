@@ -70,7 +70,7 @@ Three commands are registered by default:
 |---------|-------------------------|--------------------------------|
 | `help`  | `Commands\HelpCommand`  | Displays help for a command.   |
 | `list`  | `Commands\ListCommand`  | Lists all available commands.  |
-| `about` | `Commands\AboutCommand` | Shows application information. |
+| `about` | `Commands\AboutCommand` | Shows application information (authors and description; a long `app.info.brief` is word-wrapped to the terminal width, at most 100 columns). |
 
 Additional commands are loaded from the `console` configuration file (`config/console.php`), which must return an array
 with either a `commands` key (flat list) or a `sections` key (commands grouped by sections).
@@ -510,3 +510,5 @@ When `errorIfExist` is `true`, parsing fails if the directory already exists.
 | `default()`                               | `void`   | Echoes the default color sequence.           |
 | `print(string $text, int $fg, int $bg)`   | `void`   | Prints colored text, then resets.            |
 | `println(string $text, int $fg, int $bg)` | `void`   | Like `print()` but appends a newline.        |
+| `getWidth(int $default = 80)`             | `int`    | Terminal width in columns: `COLUMNS` variable, then `stty size` if the output is a terminal, else `$default`. |
+| `wrap(string $text, int $width, string $indent = "")` | `string` | Multibyte-safe word wrap to `$width` columns (indentation included), prepending `$indent` to every line. Keeps existing line breaks and does not split long words. |

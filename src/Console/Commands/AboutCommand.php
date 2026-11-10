@@ -37,7 +37,8 @@ class AboutCommand extends Command
         echo "\n";
 
         Terminal::println("Description:", Terminal::Yellow);
-        echo "  " . Config::get("app.info.brief") . "\n";
+        // Long descriptions are wrapped to the terminal width (at most 100 columns)
+        echo Terminal::wrap(Config::get("app.info.brief"), min(Terminal::getWidth(), 100), "  ") . "\n";
         echo "\n";
 
     }
