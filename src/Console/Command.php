@@ -185,9 +185,23 @@ abstract class Command extends CLIItem
 
     }
 
+    /**
+     * Bulk-loads Value options.
+     *
+     * Each entry is "long" => definition or "short|long" => definition, where definition is:
+     *  - a scalar or null: the default value (null = no default);
+     *  - a list [default, description, multiple?] (legacy positional format);
+     *  - an associative array with the keys:
+     *      description (string, required), default (string|null), required (bool),
+     *      multiple (bool), validValues (string[]), label (string).
+     *
+     * @param array $definitions
+     */
     public function loadOptions(array $definitions): void
     {
         foreach ($definitions as $definitionKey => $definitionData) {
+            $definitionKey = (string)$definitionKey;
+
             // Support "short|long" syntax for short name aliases
             $shortName = "";
             $longName = $definitionKey;
@@ -197,32 +211,142 @@ abstract class Command extends CLIItem
 
             $definition = new Value($longName, $shortName);
 
-            if (is_array($definitionData)) {
-                $definitionDefault = $definitionData[0];
-                $definition->setDescription($definitionData[1]);
-                if (isset($definitionData[2])) {
-                    $multiple = $definitionData[2];
-                    if (gettype($multiple) !== "boolean") {
-                        Log::critical("Multiple flag in '$definitionKey' requires a boolean value");
-                    }
-                    $definition->setMultiple($multiple);
-                }
+            if (is_array($definitionData) && self::isAssociative($definitionData)) {
+                $this->loadValueFromAssociative($definition, $definitionKey, $definitionData);
             } else {
-                $definitionDefault = $definitionData;
-            }
-            if (!empty($definitionDefault)) {
-                $definition->setDefault($definitionDefault);
+                $this->loadValueFromPositional($definition, $definitionKey, $definitionData);
             }
 
             $this->getOptionList()->addOption($definition);
         }
     }
 
+    private static function isAssociative(array $array): bool
+    {
+        foreach (array_keys($array) as $key) {
+            if (is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Legacy format: scalar|null, or [default, description, multiple?]
+     */
+    private function loadValueFromPositional(Value $definition, string $key, mixed $data): void
+    {
+        if (is_array($data)) {
+            $default = $data[0];
+            $definition->setDescription($data[1]);
+            if (isset($data[2])) {
+                if (gettype($data[2]) !== "boolean") {
+                    Log::critical("Multiple flag in '$key' requires a boolean value");
+                }
+                $definition->setMultiple($data[2]);
+            }
+        } else {
+            $default = $data;
+        }
+
+        if ($default !== null) {
+            $definition->setDefault($default);
+        }
+    }
+
+    /**
+     * Associative format with named fields
+     */
+    private function loadValueFromAssociative(Value $definition, string $key, array $data): void
+    {
+        $allowed = ["description", "default", "required", "multiple", "validValues", "label"];
+        foreach (array_keys($data) as $field) {
+            if (!in_array($field, $allowed, true)) {
+                Log::critical("Unknown field '$field' in option '$key'. Allowed: " . implode(", ", $allowed));
+            }
+        }
+
+        if (!isset($data["description"]) || !is_string($data["description"])) {
+            Log::critical("Option '$key' requires a 'description' string");
+        }
+        $definition->setDescription($data["description"]);
+
+        foreach (["required", "multiple"] as $field) {
+            if (isset($data[$field]) && !is_bool($data[$field])) {
+                Log::critical("Field '$field' in option '$key' requires a boolean value");
+            }
+        }
+
+        if (isset($data["validValues"])) {
+            if (!is_array($data["validValues"])) {
+                Log::critical("Field 'validValues' in option '$key' requires an array");
+            }
+            $definition->setValidValues(array_values(array_map('strval', $data["validValues"])));
+        }
+
+        if (isset($data["label"])) {
+            $definition->setLabel((string)$data["label"]);
+        }
+
+        $default = $data["default"] ?? null;
+        if (!empty($data["required"])) {
+            if ($default !== null) {
+                Log::critical("Option '$key' cannot be required and have a default value");
+            }
+            $definition->setRequired(true);
+        }
+
+        if ($default !== null) {
+            $default = (string)$default;
+            $valid = $definition->getValidValues();
+            if (count($valid) > 0 && !in_array($default, $valid)) {
+                Log::critical("Default value '$default' of option '$key' is not one of its valid values");
+            }
+            $definition->setDefault($default);
+        }
+
+        if (isset($data["multiple"])) {
+            $definition->setMultiple($data["multiple"]);
+        }
+    }
+
+    /**
+     * Bulk-loads Flag options (--name / --no-name).
+     *
+     * Each entry is "long" => definition or "short|long" => definition, where definition is:
+     *  - a bool: the default value;
+     *  - a list [default, description] (legacy positional format);
+     *  - an associative array with the keys: description (string, required), default (bool, false if omitted).
+     *
+     * @param array $flags
+     */
     public function loadFlags(array $flags): void
     {
         foreach ($flags as $flagKey => $flagData) {
-            $flag = new Flag($flagKey);
-            if (is_array($flagData)) {
+            $flagKey = (string)$flagKey;
+
+            // Support "short|long" syntax for short name aliases
+            $shortName = "";
+            $longName = $flagKey;
+            if (str_contains($flagKey, '|')) {
+                [$shortName, $longName] = explode('|', $flagKey, 2);
+            }
+
+            $flag = new Flag($longName, $shortName);
+
+            if (is_array($flagData) && self::isAssociative($flagData)) {
+                foreach (array_keys($flagData) as $field) {
+                    if (!in_array($field, ["description", "default"], true)) {
+                        Log::critical("Unknown field '$field' in flag '$flagKey'. Allowed: description, default");
+                    }
+                }
+                if (!isset($flagData["description"]) || !is_string($flagData["description"])) {
+                    Log::critical("Flag '$flagKey' requires a 'description' string");
+                }
+                $flag->setDescription($flagData["description"]);
+                $flagDefault = $flagData["default"] ?? false;
+            } elseif (is_array($flagData)) {
                 $flagDefault = $flagData[0];
                 $flag->setDescription($flagData[1]);
             } else {

@@ -8,7 +8,7 @@ use AppSupport\Support\Facades\Log;
 class Value extends Option
 {
     private bool $multiple = false;
-    private string $default = "";
+    private ?string $default = null;
     private string $key = "";
     private string $label = "value";
 
@@ -36,18 +36,18 @@ class Value extends Option
     }
 
     /**
-     * @return string
+     * @return string|null Null means that no default value is defined
      */
-    public function getDefault(): string
+    public function getDefault(): ?string
     {
         return $this->default;
     }
 
     /**
-     * @param string $default
+     * @param string|null $default Null means that no default value is defined
      * @return Value
      */
-    public function setDefault(string $default): static
+    public function setDefault(?string $default): static
     {
         $this->default = $default;
 
@@ -63,7 +63,7 @@ class Value extends Option
         parent::setRequired($required);
         if ($required) {
             // If required, the default value is not needed anymore
-            $this->default = "";
+            $this->default = null;
         }
 
         return $this;
@@ -131,20 +131,22 @@ class Value extends Option
 
         $value = array_shift($args);
 
+        // Valid values are checked against each single value, even for multiple options
+        if (count($this->getValidValues()) > 0 && !in_array($value, $this->getValidValues())) {
+            Log::error("Invalid value '$value' for option '{$this->getName()}'");
+            Log::info("Valid values are: " . implode(", ", $this->getValidValues()));
+            return false;
+        }
+
         if ($this->multiple) {
-            $prev = $config->get($this->key, []);
+            // Values given in the command line replace the default ones
+            $prev = $this->isSet ? $config->get($this->key, []) : [];
             $prev[] = $value;
             $value = $prev;
         } else {
             if ($this->isSet) {
                 Log::critical("Option '{$this->name}' does not support multiple values");
             }
-        }
-
-        if (count($this->getValidValues()) > 0 && !in_array($value, $this->getValidValues())) {
-            Log::error("Invalid value '$value' for option '{$this->getName()}'");
-            Log::info("Valid values are: " . implode(", ", $this->getValidValues()));
-            return false;
         }
 
         $this->isSet = true;
@@ -160,9 +162,10 @@ class Value extends Option
      */
     public function configDefault(Config $config, string $prefix): void
     {
-        if ($this->default != "") {
+        if ($this->default !== null) {
             $key = "{$prefix}{$this->path}";
-            $config->set($key, $this->getDefault());
+            // Multiple options always store an array of values
+            $config->set($key, $this->multiple ? [$this->getDefault()] : $this->getDefault());
         }
     }
 

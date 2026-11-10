@@ -148,22 +148,116 @@ aliases are lazy-loaded.
 
 ### loadOptions format
 
+`loadOptions()` creates one `Value` option (`--name <value>`) per entry of the definitions array.
+
 ```php
 $command->loadOptions([
-    'option-name' => 'default-value',
-    'other-option' => ['default', 'Description text'],
-    'multi-opt'   => ['default', 'Description', true],  // true = multiple values
+    // key       => definition (associative format, recommended)
+    'policy'     => ['description' => 'Scheduling policy', 'default' => 'fixed', 'validValues' => ['none', 'fixed', 'edf']],
+    'o|output'   => ['description' => 'Output file'],                  // short alias: -o / --output
+    'I|include'  => ['description' => 'Include path', 'multiple' => true],
+    'config'     => ['description' => 'Configuration file', 'required' => true],
 ]);
 ```
+
+The legacy positional format (`'length' => ['0', 'Simulation length']`) is still supported, see *Definition* below.
+
+#### Key
+
+| Form         | Meaning                                                                                                        |
+|--------------|----------------------------------------------------------------------------------------------------------------|
+| `long`       | Long option only: `--long <value>`.                                                                            |
+| `short\|long` | Long option plus a short alias, split at the first `\|`: `-s <value>` and `--long <value>`. `short` is one char. |
+
+The long name is also the config key under which the parsed value is stored (see *Parsing behavior*).
+
+#### Definition
+
+The definition can use one of two formats. The format is detected automatically: an array with at least one string
+key is *associative*; anything else is *positional*.
+
+##### Associative format (recommended)
+
+```php
+$command->loadOptions([
+    's|policy' => [
+        'description' => 'Scheduling policy',
+        'default'     => 'fixed',
+        'validValues' => ['none', 'fixed', 'edf'],
+        'label'       => 'policy',
+    ],
+    'config' => ['description' => 'Configuration file', 'required' => true],
+    'I|include' => ['description' => 'Include path', 'multiple' => true, 'default' => 'src'],
+]);
+```
+
+| Field         | Type              | Required | Description                                                                                       |
+|---------------|-------------------|----------|---------------------------------------------------------------------------------------------------|
+| `description` | `string`          | **yes**  | Text shown by `help <command>`.                                                                   |
+| `default`     | `string` / `null` | no       | Default value. Omitted or `null` = no default. `""` and `"0"` are real defaults.                  |
+| `required`    | `bool`            | no       | The option must be given in the command line. Cannot be combined with `default`.                  |
+| `multiple`    | `bool`            | no       | The option can be repeated; values are collected into an array.                                   |
+| `validValues` | `string[]`        | no       | Whitelist of accepted values. Each single value is checked, also for `multiple` options. If a `default` is given it must be one of them. |
+| `label`       | `string`          | no       | Placeholder shown in help (`--policy <label>`, default `value`).                                   |
+
+Errors (critical): missing or non-string `description`, unknown field, non-boolean `required`/`multiple`, non-array
+`validValues`, `required` together with `default`, or a `default` outside `validValues`.
+
+For `multiple` options the config always holds an array. A `default` is stored as a one-element array and is *replaced*
+(not extended) by the values given in the command line.
+
+##### Positional format (legacy)
+
+```php
+$command->loadOptions([
+    'policy'   => 'fixed',                          // scalar: just the default
+    'length'   => ['0', 'Simulation length'],       // [default, description]
+    'o|output' => ['', 'Output file'],              // short alias: -o / --output
+    'include'  => [null, 'Include path', true],     // [default, description, multiple]
+    'plain'    => null,                             // no default value defined
+]);
+```
+
+| Position | Name        | Type              | Required | Description                                                                                  |
+|----------|-------------|-------------------|----------|----------------------------------------------------------------------------------------------|
+| `[0]`    | default     | `string` / `null` | yes      | Default value. `null` = no default (nothing is written to the config).                       |
+| `[1]`    | description | `string`          | no       | Text shown by `help <command>`.                                                              |
+| `[2]`    | multiple    | `bool`            | no       | Repeatable option. Any other type is a critical error.                                       |
+
+A scalar definition only sets the default and leaves the option without description. The positional format cannot
+express `required`, `validValues` or `label`; use the associative format instead.
+
+##### Notes
+
+- Values are always strings; cast them in the command (`(int) $this->config->get('length')`).
+- Options must appear before positional arguments on the command line (`cmd --length 10 file.tasks`).
+- Options can also be built manually (`new Value(...)`, `setRequired()`, `setValidValues()`, ...) and added with
+  `getOptionList()->addOption()`.
 
 ### loadFlags format
 
+`loadFlags()` creates one `Flag` per entry. Each flag registers both `--name` and `--no-name`. The key accepts the same
+`short|long` syntax as `loadOptions()` (a short alias `-s` always sets the flag to `true`).
+
 ```php
 $command->loadFlags([
-    'verbose' => false,
-    'dry-run' => [false, 'Run without making changes'],
+    // Associative format (recommended)
+    'dry-run'   => ['description' => 'Run without making changes'],                  // default false
+    'v|verbose' => ['description' => 'Verbose output', 'default' => true],
+
+    // Positional format (legacy)
+    'quiet'     => false,                                    // scalar: just the default
+    'force'     => [false, 'Overwrite existing files'],      // [default, description]
 ]);
 ```
+
+| Field         | Type     | Required | Description                                                    |
+|---------------|----------|----------|----------------------------------------------------------------|
+| `description` | `string` | **yes**  | Text shown by `help <command>`.                                |
+| `default`     | `bool`   | no       | Default value (`false` when omitted). Non-booleans are errors. |
+
+Errors (critical): missing or non-string `description`, unknown field, or a non-boolean default. In the positional
+format, `[0]` is the default (`bool`, required) and `[1]` the description.
 
 ### Parsing behavior
 
@@ -269,13 +363,13 @@ new Option(string $longName, string $shortName = "", string $path = "")
 
 | Method                                       | Returns             | Description                                                                                            |
 |----------------------------------------------|---------------------|--------------------------------------------------------------------------------------------------------|
-| `isMultiple()` / `setMultiple(bool)`         | `bool` / `static`   | Whether the option can be specified multiple times. When multiple, values are collected into an array. |
-| `getDefault()` / `setDefault(string)`        | `string` / `static` | The default value.                                                                                     |
+| `isMultiple()` / `setMultiple(bool)`         | `bool` / `static`   | Whether the option can be specified multiple times. When multiple, values are collected into an array; a default is stored as a one-element array and replaced by the command-line values. |
+| `getDefault()` / `setDefault(?string)`       | `?string` / `static`| The default value. `null` means no default is defined (`""` and `"0"` are valid defaults).           |
 | `setRequired(bool)`                          | `static`            | When set to `true`, clears the default value.                                                          |
-| `getValidValues()` / `setValidValues(array)` | `array` / `void`    | Restricts accepted values to a whitelist.                                                              |
+| `getValidValues()` / `setValidValues(array)` | `array` / `void`    | Restricts accepted values to a whitelist. Each single value is checked, also for multiple options.    |
 | `isSet()`                                    | `bool`              | Whether the option has been parsed.                                                                    |
 | `getLabel()` / `setLabel(string)`            | `string` / `void`   | The label shown in help output (default: `"value"`).                                                   |
-| `configDefault(Config, string)`              | `void`              | Writes the default value to the config (only if non-empty).                                            |
+| `configDefault(Config, string)`              | `void`              | Writes the default value to the config (only if it is not `null`).                                       |
 
 ---
 

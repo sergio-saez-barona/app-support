@@ -112,6 +112,17 @@ The `Console` class discovers commands from `config/console.php` and provides th
 ### Argument and Option Parsing
 
 Commands support positional arguments, value options (`--output dir`), and boolean flags (`--verbose` / `--no-verbose`). Specialized types like `InputFile`, `InputDirectory`, and `OutputDirectory` add filesystem validation automatically.
+Options and flags are declared in bulk with `loadOptions()` and `loadFlags()` using associative arrays:
+```php
+$this->loadOptions([
+    's|policy' => ['description' => 'Policy', 'default' => 'fixed', 'validValues' => ['none', 'fixed', 'edf']],
+    'config'   => ['description' => 'Config file', 'required' => true],
+]);
+$this->loadFlags([
+    'v|verbose' => ['description' => 'Verbose output', 'default' => false],
+]);
+```
+See [Console Classes](doc/Console.md#loadoptions-format) for all fields.
 
 ### Service Container
 

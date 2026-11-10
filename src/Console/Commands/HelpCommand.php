@@ -15,7 +15,7 @@ use AppSupport\Support\Facades\Config;
 
 class HelpCommand extends Command
 {
-    const COLUMN = 40;
+    const COLUMN = 32;
 
     public function __construct()
     {
@@ -93,8 +93,8 @@ class HelpCommand extends Command
         if ($option instanceof Flag) {
             $description .= "\n   Status: " . (($option->getDefault() ? "true" : "false"));
         } elseif ($option instanceof Value) {
-            $default = trim($option->getDefault());
-            if ($default) {
+            $default = $option->getDefault();
+            if ($default !== null && trim($default) !== "") {
                 $description .= "\n   Default: '$default' ";
             }
             $values = $option->getValidValues();
