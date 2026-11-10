@@ -108,6 +108,7 @@ php bin/myapp greet World
 ### Command Routing
 
 The `Console` class discovers commands from `config/console.php` and provides three built-in commands: `list`, `help`, and `about`. The default command (when none is specified) is `list`.
+Commands can optionally be grouped in titled sections (`sections` instead of `commands` in `config/console.php`), which the `list` command displays grouped; see [Console Classes](doc/Console.md#configuration-files).
 
 ### Argument and Option Parsing
 

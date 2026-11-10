@@ -73,7 +73,7 @@ Three commands are registered by default:
 | `about` | `Commands\AboutCommand` | Shows application information. |
 
 Additional commands are loaded from the `console` configuration file (`config/console.php`), which must return an array
-with a `commands` key.
+with either a `commands` key (flat list) or a `sections` key (commands grouped by sections).
 
 ### Methods
 
@@ -86,7 +86,8 @@ with a `commands` key.
 | `showInfo()`                                                | `void`     | Prints the application logo, name, version, and date.                                                                                                                  |
 | `showLogo()`                                                | `void`     | Prints a default ASCII art logo. Override this method to customize.                                                                                                    |
 | `findCommand(string $name)`                                 | `?Command` | Finds and instantiates a command by name. Calls `boot()` on it. Logs a critical error if not found.                                                                    |
-| `getCommands()`                                             | `array`    | Returns the full command registry (`name => classname`).                                                                                                               |
+| `getCommands()`                                             | `array`    | Returns the full command registry (`name => classname`), always flat, also when `sections` is used.                                                                    |
+| `getSections()`                                             | `array`    | Returns the normalized sections (`title`, `description`, `sorted`, `commands`) in configuration order. Empty when the flat `commands` array is used.                    |
 
 ### Configuration Files
 
@@ -101,6 +102,45 @@ return [
     ],
 ];
 ```
+
+Commands can be grouped in sections by using `sections` **instead of** `commands` (using both is a critical error):
+
+```php
+return [
+    'sections' => [
+        [
+            'title'       => 'Analysis',                     // required
+            'description' => 'Commands that analyze plans',  // optional, printed below the title
+            'sorted'      => true,                           // optional, sort the commands by name (default false)
+            'commands'    => [                               // required, same format as the flat array
+                'check' => CheckCommand::class,
+                'demand' => DemandCommand::class,
+            ],
+        ],
+        [
+            'title'    => 'Output',
+            'commands' => ['diagram' => DiagramCommand::class],
+        ],
+    ],
+];
+```
+
+| Field         | Type     | Required | Description                                                                    |
+|---------------|----------|----------|--------------------------------------------------------------------------------|
+| `title`       | `string` | **yes**  | Section title.                                                                 |
+| `description` | `string` | no       | Text shown below the title by the `list` command.                              |
+| `sorted`      | `bool`   | no       | Sort the section's commands alphabetically by name. By default, config order.  |
+| `commands`    | `array`  | **yes**  | `name => classname`.                                                           |
+
+Behavior:
+
+- The hierarchy is flattened internally, so command resolution (`findCommand()`, `getCommands()`, `help`) works exactly
+  as with the flat format.
+- A command name cannot appear in more than one section (critical error). Unknown section fields are also errors.
+- The `list` command prints the sections in order, each with its title, optional description and commands. Registered
+  commands that belong to no section (e.g. the built-in `help`, `list` and `about`) are printed at the end in an
+  *Other commands* section, sorted by name. To place them elsewhere, include them in a section
+  (`'help' => \AppSupport\Console\Commands\HelpCommand::class`).
 
 **config/app.php** — May return:
 

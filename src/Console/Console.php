@@ -18,6 +18,11 @@ class Console extends Container
 {
     private ?string $basePath = null;
     private string $defaultCommand = "list";
+    /**
+     * Normalized command sections (empty when the flat "commands" configuration is used)
+     * @var array<int, array{title: string, description: string, sorted: bool, commands: array<string, string>}>
+     */
+    private array $sections = [];
     private array $commands = [
         "help" => \AppSupport\Console\Commands\HelpCommand::class,
         "list" => \AppSupport\Console\Commands\ListCommand::class,
@@ -62,7 +67,76 @@ class Console extends Container
         // Load console configuration
         $config = Config::load("console");
 
-        $this->commands = array_merge($this->commands, $config["commands"]);
+        if (isset($config["sections"])) {
+            if (isset($config["commands"])) {
+                Log::critical("Console configuration: 'commands' and 'sections' cannot be used together");
+            }
+
+            // The hierarchy is flattened for command resolution
+            $this->sections = $this->normalizeSections($config["sections"]);
+            $flat = [];
+            foreach ($this->sections as $section) {
+                $flat = array_merge($flat, $section["commands"]);
+            }
+            $this->commands = array_merge($this->commands, $flat);
+        } else {
+            $this->commands = array_merge($this->commands, $config["commands"] ?? []);
+        }
+    }
+
+    /**
+     * Validates the 'sections' configuration and returns it in a normalized form
+     *
+     * @param mixed $sections
+     * @return array
+     */
+    private function normalizeSections(mixed $sections): array
+    {
+        if (!is_array($sections)) {
+            Log::critical("Console configuration: 'sections' requires an array");
+        }
+
+        $result = [];
+        $seen = [];
+        foreach ($sections as $index => $section) {
+            if (!is_array($section)) {
+                Log::critical("Console configuration: section #$index requires an array");
+            }
+            foreach (array_keys($section) as $field) {
+                if (!in_array($field, ["title", "description", "sorted", "commands"], true)) {
+                    Log::critical("Console configuration: unknown field '$field' in section #$index");
+                }
+            }
+            if (!isset($section["title"]) || !is_string($section["title"])) {
+                Log::critical("Console configuration: section #$index requires a 'title' string");
+            }
+            $title = $section["title"];
+            if (isset($section["description"]) && !is_string($section["description"])) {
+                Log::critical("Console configuration: 'description' in section '$title' requires a string");
+            }
+            if (isset($section["sorted"]) && !is_bool($section["sorted"])) {
+                Log::critical("Console configuration: 'sorted' in section '$title' requires a boolean");
+            }
+            if (!isset($section["commands"]) || !is_array($section["commands"])) {
+                Log::critical("Console configuration: section '$title' requires a 'commands' array");
+            }
+
+            foreach ($section["commands"] as $name => $classname) {
+                if (isset($seen[$name])) {
+                    Log::critical("Console configuration: command '$name' is defined in sections '{$seen[$name]}' and '$title'");
+                }
+                $seen[$name] = $title;
+            }
+
+            $result[] = [
+                "title" => $title,
+                "description" => $section["description"] ?? "",
+                "sorted" => $section["sorted"] ?? false,
+                "commands" => $section["commands"],
+            ];
+        }
+
+        return $result;
     }
 
     private function processAppConfiguration()
@@ -231,6 +305,18 @@ EOT;
     private function commandExist(string $name): bool
     {
         return isset($this->commands[$name]);
+    }
+
+    /**
+     * Returns the normalized command sections, in configuration order. Each section has the keys
+     * title, description, sorted and commands (name => classname). It is empty when the
+     * configuration uses the flat 'commands' array.
+     *
+     * @return array
+     */
+    public function getSections(): array
+    {
+        return $this->sections;
     }
 
     /**
