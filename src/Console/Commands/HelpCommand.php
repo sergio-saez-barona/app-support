@@ -15,7 +15,7 @@ use AppSupport\Support\Facades\Config;
 
 class HelpCommand extends Command
 {
-    const COLUMN = 32;
+    const COLUMN = 35;
 
     public function __construct()
     {
@@ -77,10 +77,10 @@ class HelpCommand extends Command
         }
 
         if (!$option->isRequired()) {
-            $format = sprintf("    %%-%ds  ", self::COLUMN - 2);
+            $format = sprintf("  %%-%ds  ", self::COLUMN - 2);
         } else {
             $color = Terminal::getColor(Terminal::Red);
-            $format = sprintf("    %%-%ds  ", self::COLUMN - 2 + strlen($color));
+            $format = sprintf("  %%-%ds  ", self::COLUMN - 2 + strlen($color));
             $str .= " {$color}[required]";
         }
 
