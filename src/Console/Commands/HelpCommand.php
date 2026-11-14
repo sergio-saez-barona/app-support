@@ -15,7 +15,11 @@ use AppSupport\Support\Facades\Config;
 
 class HelpCommand extends Command
 {
-    const COLUMN = 35;
+    /**
+     * Column where the descriptions of the options and the arguments start. The other lines of a
+     * description (e.g. the values of an option) are indented 2 columns more.
+     */
+    const COLUMN = 36;
 
     public function __construct()
     {
@@ -77,15 +81,15 @@ class HelpCommand extends Command
         }
 
         if (!$option->isRequired()) {
-            $format = sprintf("  %%-%ds  ", self::COLUMN - 2);
+            $format = sprintf("  %%-%ds  ", self::COLUMN - 4);
         } else {
             $color = Terminal::getColor(Terminal::Red);
-            $format = sprintf("  %%-%ds  ", self::COLUMN - 2 + strlen($color));
+            $format = sprintf("  %%-%ds  ", self::COLUMN - 4 + strlen($color));
             $str .= " {$color}[required]";
         }
 
         Terminal::color(Terminal::Green);
-        $column = $this->printLabel(sprintf($format, $str), self::COLUMN + 2);
+        $column = $this->printLabel(sprintf($format, $str), self::COLUMN);
 
         $description = $option->getDescription();
         if ($option instanceof Flag) {
@@ -101,7 +105,7 @@ class HelpCommand extends Command
             }
         }
 
-        echo Terminal::wrapHanging($description, Terminal::getTextWidth(), $column, self::COLUMN + 4);
+        echo Terminal::wrapHanging($description, Terminal::getTextWidth(), $column, self::COLUMN + 2);
         echo "\n";
     }
 
@@ -169,17 +173,17 @@ class HelpCommand extends Command
                 $str = $arg->getName();
 
                 if (!$arg->isRequired()) {
-                    $format = sprintf("  %%-%ds  ", self::COLUMN);
+                    $format = sprintf("  %%-%ds  ", self::COLUMN - 4);
                 } else {
                     $color = Terminal::getColor(Terminal::Red);
-                    $format = sprintf("  %%-%ds  ", self::COLUMN + strlen($color));
+                    $format = sprintf("  %%-%ds  ", self::COLUMN - 4 + strlen($color));
                     $str .= " {$color}[required]";
                 }
 
                 Terminal::color(Terminal::Green);
-                $column = $this->printLabel(sprintf($format, $str), self::COLUMN + 4);
+                $column = $this->printLabel(sprintf($format, $str), self::COLUMN);
 
-                echo Terminal::wrapHanging($arg->getDescription(), Terminal::getTextWidth(), $column, self::COLUMN + 4);
+                echo Terminal::wrapHanging($arg->getDescription(), Terminal::getTextWidth(), $column, self::COLUMN + 2);
                 echo "\n";
             }
             echo "\n";
