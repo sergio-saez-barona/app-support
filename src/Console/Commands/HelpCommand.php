@@ -85,10 +85,7 @@ class HelpCommand extends Command
         }
 
         Terminal::color(Terminal::Green);
-        $text = sprintf($format, $str);
-        echo $text;
-        Terminal::reset();
-        $column = $this->visibleLength($text);
+        $column = $this->printLabel(sprintf($format, $str), self::COLUMN + 2);
 
         $description = $option->getDescription();
         if ($option instanceof Flag) {
@@ -106,6 +103,31 @@ class HelpCommand extends Command
 
         echo Terminal::wrapHanging($description, Terminal::getTextWidth(), $column, self::COLUMN + 4);
         echo "\n";
+    }
+
+    /**
+     * Prints the label of an option or an argument (the color is already set) and leaves the cursor
+     * where its description has to start: right after the label, or at the beginning of the column
+     * of the descriptions in the next line if the label is too long to leave it there.
+     *
+     * @param string $label Label padded to the width of its column, may have color sequences
+     * @param int $start Column where the descriptions start
+     * @return int Column where the description starts
+     */
+    private function printLabel(string $label, int $start): int
+    {
+        if ($this->visibleLength($label) <= $start) {
+            echo $label;
+            Terminal::reset();
+
+            return $this->visibleLength($label);
+        }
+
+        echo rtrim($label);
+        Terminal::reset();
+        echo "\n" . str_repeat(" ", $start);
+
+        return $start;
     }
 
     /**
@@ -155,11 +177,9 @@ class HelpCommand extends Command
                 }
 
                 Terminal::color(Terminal::Green);
-                $text = sprintf($format, $str);
-                echo $text;
-                Terminal::reset();
+                $column = $this->printLabel(sprintf($format, $str), self::COLUMN + 4);
 
-                echo Terminal::wrapHanging($arg->getDescription(), Terminal::getTextWidth(), $this->visibleLength($text), self::COLUMN + 4);
+                echo Terminal::wrapHanging($arg->getDescription(), Terminal::getTextWidth(), $column, self::COLUMN + 4);
                 echo "\n";
             }
             echo "\n";

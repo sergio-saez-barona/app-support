@@ -68,7 +68,7 @@ Three commands are registered by default:
 
 | Name    | Class                   | Description                    |
 |---------|-------------------------|--------------------------------|
-| `help`  | `Commands\HelpCommand`  | Displays help for a command. The descriptions of the command, its arguments and its options are word-wrapped to the terminal width (at most 100 columns), keeping the columns of the help. |
+| `help`  | `Commands\HelpCommand`  | Displays help for a command. The descriptions of the command, its arguments and its options are word-wrapped to the terminal width (at most 100 columns), keeping the columns of the help. If the label of an option or argument is longer than its column (e.g. `-m, --mutation <unchanged:modified> [required]`), the description starts in the next line. |
 | `list`  | `Commands\ListCommand`  | Lists all available commands. The descriptions of the sections and the commands are word-wrapped like the ones of `help`. |
 | `about` | `Commands\AboutCommand` | Shows application information (authors and description; a long `app.info.brief` is word-wrapped to the terminal width, at most 100 columns). |
 
