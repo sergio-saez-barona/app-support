@@ -68,8 +68,8 @@ Three commands are registered by default:
 
 | Name    | Class                   | Description                    |
 |---------|-------------------------|--------------------------------|
-| `help`  | `Commands\HelpCommand`  | Displays help for a command.   |
-| `list`  | `Commands\ListCommand`  | Lists all available commands.  |
+| `help`  | `Commands\HelpCommand`  | Displays help for a command. The descriptions of the command, its arguments and its options are word-wrapped to the terminal width (at most 100 columns), keeping the columns of the help. |
+| `list`  | `Commands\ListCommand`  | Lists all available commands. The descriptions of the sections and the commands are word-wrapped like the ones of `help`. |
 | `about` | `Commands\AboutCommand` | Shows application information (authors and description; a long `app.info.brief` is word-wrapped to the terminal width, at most 100 columns). |
 
 Additional commands are loaded from the `console` configuration file (`config/console.php`), which must return an array
@@ -512,3 +512,5 @@ When `errorIfExist` is `true`, parsing fails if the directory already exists.
 | `println(string $text, int $fg, int $bg)` | `void`   | Like `print()` but appends a newline.        |
 | `getWidth(int $default = 80)`             | `int`    | Terminal width in columns: `COLUMNS` variable, then `stty size` if the output is a terminal, else `$default`. |
 | `wrap(string $text, int $width, string $indent = "")` | `string` | Multibyte-safe word wrap to `$width` columns (indentation included), prepending `$indent` to every line. Keeps existing line breaks and does not split long words. |
+| `getTextWidth(int $max = 100)`            | `int`    | Width for the texts of the help: the terminal width, at most `$max` columns. |
+| `wrapHanging(string $text, int $width, int $firstColumn, int $indent, int $hang = 2)` | `string` | Word wrap of a text that is printed after a label (e.g. the description of an option). The first line starts at column `$firstColumn` and its continuation lines go to that column; the other lines of the text (separated by `\n`) are indented `$indent` columns plus their own leading spaces, and their continuation lines `$hang` more. Multibyte-safe, long words are not split, and the result has no trailing newline. |

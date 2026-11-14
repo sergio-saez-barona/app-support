@@ -146,4 +146,71 @@ class Terminal
 
         return implode("\n", $lines);
     }
+
+    /**
+     * Width to wrap the texts of the help: the width of the terminal, at most $max columns
+     */
+    static public function getTextWidth(int $max = 100): int
+    {
+        return min(self::getWidth(), $max);
+    }
+
+    /**
+     * Word-wraps a text that is printed after a label, such as the description of an option. The lines
+     * of the text (separated by "\n") are wrapped independently:
+     *  - The first line starts at column $firstColumn (the caller has already printed what is before it)
+     *    and its continuation lines are indented to that column.
+     *  - The other lines are indented $indent columns, plus their own leading spaces, and their
+     *    continuation lines $hang columns more.
+     * The words longer than the available width are not split. The result has no trailing newline.
+     *
+     * @param string $text Text to wrap
+     * @param int $width Maximum width of the lines, including the indentation
+     * @param int $firstColumn Column where the first line starts
+     * @param int $indent Indentation of the following lines of the text
+     * @param int $hang Additional indentation of the continuation lines of those lines
+     */
+    static public function wrapHanging(string $text, int $width, int $firstColumn, int $indent, int $hang = 2): string
+    {
+        $result = [];
+        foreach (explode("\n", $text) as $number => $line) {
+            if ($number == 0) {
+                $prefix = "";
+                $column = $firstColumn;
+                $continuation = $firstColumn;
+            } else {
+                $column = $indent + strlen($line) - strlen(ltrim($line));
+                $prefix = str_repeat(" ", $column);
+                $continuation = $column + $hang;
+            }
+
+            $words = preg_split('/\s+/', trim($line), -1, PREG_SPLIT_NO_EMPTY);
+            if (count($words) == 0) {
+                $result[] = rtrim($prefix);
+                continue;
+            }
+
+            $physical = [];
+            $current = "";
+            $limit = max(20, $width - $column);
+            foreach ($words as $word) {
+                if ($current === "") {
+                    $current = $word;
+                } elseif (mb_strlen($current) + 1 + mb_strlen($word) <= $limit) {
+                    $current .= " " . $word;
+                } else {
+                    $physical[] = $current;
+                    $current = $word;
+                    $limit = max(20, $width - $continuation);
+                }
+            }
+            $physical[] = $current;
+
+            foreach ($physical as $i => $piece) {
+                $result[] = ($i == 0 ? $prefix : str_repeat(" ", $continuation)) . $piece;
+            }
+        }
+
+        return implode("\n", $result);
+    }
 }

@@ -58,7 +58,7 @@ class ListCommand extends Command
             foreach ($sections as $section) {
                 Terminal::println($section["title"] . ":", Terminal::Yellow);
                 if ($section["description"] !== "") {
-                    echo "  {$section["description"]}\n\n";
+                    echo "  " . Terminal::wrapHanging($section["description"], Terminal::getTextWidth(), 2, 2, 0) . "\n\n";
                 }
 
                 $commands = $section["commands"];
@@ -84,11 +84,13 @@ class ListCommand extends Command
             /** @var Command $cmd */
             $cmd = new $classname();
 
-            echo sprintf("  %s%-20s%s %s\n",
+            echo sprintf("  %s%-20s%s ",
                 Terminal::getColor(Terminal::Green),
                 $name,
-                Terminal::getReset(),
-                $cmd->getDescription());
+                Terminal::getReset());
+            // The description starts after the name (at least 20 columns), and wraps under itself
+            $column = 3 + max(20, mb_strlen($name));
+            echo Terminal::wrapHanging($cmd->getDescription(), Terminal::getTextWidth(), $column, $column) . "\n";
         }
     }
 

@@ -88,6 +88,7 @@ class HelpCommand extends Command
         $text = sprintf($format, $str);
         echo $text;
         Terminal::reset();
+        $column = $this->visibleLength($text);
 
         $description = $option->getDescription();
         if ($option instanceof Flag) {
@@ -103,11 +104,16 @@ class HelpCommand extends Command
             }
         }
 
-        $description = str_replace("\n",
-            "\n" . str_repeat(" ", self::COLUMN + 4),
-            $description);
-        echo $description;
+        echo Terminal::wrapHanging($description, Terminal::getTextWidth(), $column, self::COLUMN + 4);
         echo "\n";
+    }
+
+    /**
+     * Number of columns that a text takes, without counting the color sequences
+     */
+    private function visibleLength(string $text): int
+    {
+        return mb_strlen(preg_replace('/\e\[[0-9;]*m/', '', $text));
     }
 
     private function showUsage(Command $cmd)
@@ -121,14 +127,14 @@ class HelpCommand extends Command
     {
 //        Terminal::println("Description:", Terminal::Yellow);
 //        echo "  " . trim($cmd->getDescription()) . "\n\n";
-        echo trim($cmd->getDescription()) . "\n\n";
+        echo Terminal::wrapHanging(trim($cmd->getDescription()), Terminal::getTextWidth(), 0, 0, 0) . "\n\n";
     }
 
     private function showHelp(Command $cmd)
     {
         if ($cmd->getHelp() != "") {
             Terminal::println("Help:", Terminal::Yellow);
-            echo "  " . str_replace("\n", "\n  ", trim($cmd->getHelp())) . "\n\n";
+            echo "  " . Terminal::wrapHanging(trim($cmd->getHelp()), Terminal::getTextWidth(), 2, 2, 0) . "\n\n";
         }
     }
 
@@ -149,14 +155,11 @@ class HelpCommand extends Command
                 }
 
                 Terminal::color(Terminal::Green);
-                echo sprintf($format, $str);
+                $text = sprintf($format, $str);
+                echo $text;
                 Terminal::reset();
 
-                $description = str_replace("\n",
-                    "\n" . str_repeat(" ", self::COLUMN + 4),
-                    $arg->getDescription());
-
-                echo $description;
+                echo Terminal::wrapHanging($arg->getDescription(), Terminal::getTextWidth(), $this->visibleLength($text), self::COLUMN + 4);
                 echo "\n";
             }
             echo "\n";
