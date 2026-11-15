@@ -162,3 +162,17 @@ Detailed documentation is available in the `doc/` directory:
 ## License
 
 See [composer.json](composer.json) for package metadata.
+
+## Tests
+The tests use [PHPUnit](https://phpunit.de) (a development dependency, PHP 8.4 or later):
+```bash
+composer install
+composer test            # or: vendor/bin/phpunit
+```
+When the package is installed in another project, they can be run with the PHPUnit of that project:
+`vendor/bin/phpunit -c vendor/ssaezba/appsupport/phpunit.xml.dist`.
+
+They cover the definition of options and flags (`Command::loadOptions()` and `loadFlags()`, positional and
+associative formats), the parsing of options and arguments, the command sections, the output of the `help`,
+`list` and `about` commands (columns and word wrap), `Terminal` and the configuration `Repository`.
+The fatal errors of the library end the process, so the tests replace the logger with one that throws an exception.
