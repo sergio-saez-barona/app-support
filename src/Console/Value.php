@@ -12,7 +12,6 @@ class Value extends Option
     private string $key = "";
     private string $label = "value";
 
-    private bool $isSet = false;
 
     private array $validValues = [];
 
@@ -83,14 +82,6 @@ class Value extends Option
     public function setValidValues(array $validValues): void
     {
         $this->validValues = $validValues;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isSet(): bool
-    {
-        return $this->isSet;
     }
 
     /**

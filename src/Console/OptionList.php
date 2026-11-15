@@ -122,6 +122,73 @@ class OptionList
     }
 
     /**
+     * Gives values to the options that have not been given (e.g. the values of a configuration file). The
+     * values are checked like the ones of the command line: valid values, directories...
+     *
+     * @param array<string, mixed> $values long name of the option => its value: a text or a number, true or false
+     *                                     for a flag, or a list of them for an option that can be repeated
+     * @param Config $config
+     * @param bool $strict if true an option that does not exist is an error, and if not it is ignored
+     * @param string $origin where the values come from, for the messages
+     */
+    public function setFromValues(array $values, Config $config, bool $strict, string $origin): void
+    {
+        foreach ($values as $name => $value) {
+            $name = (string)$name;
+            $option = $this->options[$name] ?? null;
+            if ($option === null) {
+                if ($strict) {
+                    Log::critical("Unknown option '{$name}' in {$origin}");
+                }
+                continue;
+            }
+            if ($option instanceof ConfigFile) {
+                if ($strict) {
+                    Log::critical("The option '{$name}' cannot be given in {$origin}");
+                }
+                continue;
+            }
+            if ($option->isSet()) {
+                // What is in the command line has priority
+                continue;
+            }
+
+            $this->setFromValue($option, $name, $value, $config, $origin);
+        }
+    }
+
+    private function setFromValue(Option $option, string $name, mixed $value, Config $config, string $origin): void
+    {
+        $args = [];
+        if ($option instanceof Flag) {
+            if (!is_bool($value)) {
+                Log::critical("The option '{$name}' in {$origin} requires true or false");
+            }
+            $option->parse($value ? $name : "no-{$name}", $args, true, $config, $this->configPrefix);
+
+            return;
+        }
+
+        if (is_array($value) && !array_is_list($value)) {
+            Log::critical("The option '{$name}' in {$origin} requires a value, not a table");
+        }
+        if (is_array($value) && !($option instanceof Value && $option->isMultiple())) {
+            Log::critical("The option '{$name}' in {$origin} cannot have a list of values");
+        }
+
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            if (!is_string($item) && !is_int($item) && !is_float($item)) {
+                Log::critical("The option '{$name}' in {$origin} requires a text or a number");
+            }
+
+            $args = [(string)$item];
+            if (!$option->parse($name, $args, true, $config, $this->configPrefix)) {
+                Log::critical("Invalid value for the option '{$name}' in {$origin}");
+            }
+        }
+    }
+
+    /**
      * @param Config $config
      * @return void
      */

@@ -13,6 +13,7 @@ CLIItem (abstract)
 └── Option (abstract)
     ├── Flag
     └── Value
+        ├── ConfigFile
         ├── InputDirectory
         └── OutputDirectory
 
@@ -196,7 +197,7 @@ $command->loadOptions([
     'policy'     => ['description' => 'Scheduling policy', 'default' => 'fixed', 'validValues' => ['none', 'fixed', 'edf']],
     'o|output'   => ['description' => 'Output file'],                  // short alias: -o / --output
     'I|include'  => ['description' => 'Include path', 'multiple' => true],
-    'config'     => ['description' => 'Configuration file', 'required' => true],
+    'source'     => ['description' => 'Source file', 'required' => true],
 ]);
 ```
 
@@ -226,7 +227,7 @@ $command->loadOptions([
         'validValues' => ['none', 'fixed', 'edf'],
         'label'       => 'policy',
     ],
-    'config' => ['description' => 'Configuration file', 'required' => true],
+    'source' => ['description' => 'Source file', 'required' => true],
     'I|include' => ['description' => 'Include path', 'multiple' => true, 'default' => 'src'],
 ]);
 ```
@@ -239,9 +240,21 @@ $command->loadOptions([
 | `multiple`    | `bool`            | no       | The option can be repeated; values are collected into an array.                                   |
 | `validValues` | `string[]`        | no       | Whitelist of accepted values. Each single value is checked, also for `multiple` options. If a `default` is given it must be one of them. |
 | `label`       | `string`          | no       | Placeholder shown in help (`--policy <label>`, default `value`).                                   |
+| `type`        | `string`          | no       | The kind of option: `value` (default), `input-directory`, `output-directory` or `config-file` (see below). |
 
 Errors (critical): missing or non-string `description`, unknown field, non-boolean `required`/`multiple`, non-array
-`validValues`, `required` together with `default`, or a `default` outside `validValues`.
+`validValues`, `required` together with `default`, a `default` outside `validValues`, or an unknown `type`.
+
+The `type` selects the class of the option (all of them are `Value`s, so the rest of the fields work in the same way):
+
+| `type`             | Class             | Checks that the value...                                          |
+|--------------------|-------------------|-------------------------------------------------------------------|
+| `value`            | `Value`           | (no check)                                                        |
+| `input-directory`  | `InputDirectory`  | is a directory that exists and can be read                        |
+| `output-directory` | `OutputDirectory` | (see [OutputDirectory](#outputdirectory))                         |
+| `config-file`      | `ConfigFile`      | is a file that can be read; its values are given to the other options (see [ConfigFile](#configfile)). It cannot have a `default`; it can be `multiple` (layers) |
+
+The description of the definition replaces the one that the class has by default.
 
 For `multiple` options the config always holds an array. A `default` is stored as a one-element array and is *replaced*
 (not extended) by the values given in the command line.
@@ -300,6 +313,10 @@ Errors (critical): missing or non-string `description`, unknown field, or a non-
 format, `[0]` is the default (`bool`, required) and `[1]` the description.
 
 ### Parsing behavior
+
+The options are parsed first (so they have to come before the arguments), then the values of the configuration files
+(options of type `config-file`) are given to the options that were not in the command line, then the arguments are
+read, and finally the required arguments and options are checked.
 
 When `$useInternalConfig` is `true`, parsed values are stored in a fresh local `Repository` with no key prefix. When
 `false`, values are stored in the global config under the prefix `app.args.<commandName>.`, and `$this->config` is set
@@ -361,6 +378,7 @@ new Option(string $longName, string $shortName = "", string $path = "")
 | `getShortName()`                        | `string` | Returns the short option name.                          |
 | `isRequired()`                          | `bool`   | Whether the option is required.                         |
 | `setRequired(bool)`                     | `static` | Sets the required flag. Fluent.                         |
+| `isSet()`                               | `bool`   | Whether the option has been given, in the command line or in a configuration file. |
 | `register(array &$long, array &$short)` | `void`   | Registers this option in the lookup arrays.             |
 | `parse(...)`                            | `bool`   | **Abstract.** Parses the option from the argument list. |
 | `configDefault(Config, string)`         | —        | **Abstract.** Writes the default value to the config.   |
@@ -449,6 +467,96 @@ When `errorIfExist` is `true`, parsing fails if the directory already exists.
 
 ---
 
+## ConfigFile
+
+`AppSupport\Console\ConfigFile` — A `Value` option whose file gives values to the other options of
+the command, so the options that are always the same do not have to be typed every time. It is declared with the type
+`config-file`:
+
+The name of the option is the one that the application gives it (`--config` in the examples, but it can be any name:
+`--settings`, `--profile`...), and the `description`, `label`, `required`... are the ones of the definition.
+
+```php
+$this->loadOptions([
+    'c|config' => ['description' => 'File with the values of the options', 'type' => 'config-file'],
+    'n|count'  => ['description' => 'Number of tasks', 'required' => true],
+    'policy'   => ['description' => 'Policy', 'default' => 'fixed'],
+]);
+```
+
+The file is a [TOML](https://toml.io) file (`.toml`, read with the `php-collective/toml` library). The keys are the
+**long names** of the options. A table with the name of a command has the values of that command only, and the keys
+that are not in a table are common to every command that has an option with that name, so a file can serve several
+commands:
+
+```toml
+granularity = 1000          # common: for the commands that have this option
+
+[gen-periodic]              # only for gen-periodic
+count = 20
+utilization = 0.8
+periods = "10:1000"
+
+[gen-gmf]
+frames = "2:5"
+policy = ["a", "b"]         # a list, for an option that can be repeated
+grid = false                # true or false, for a flag
+```
+
+**Priority.** For every option the value is, from the lowest to the highest priority: its default, a common value of
+the file, the value in the table of the command, and the command line. The file is read *after* all the options of the
+command line, so the result does not depend on the order of the arguments (`--config f.toml -n 3` and
+`-n 3 --config f.toml` are the same). A list of the command line replaces the one of the file, like it replaces a default.
+
+**Layers.** The option can be `multiple`: every file is a layer, and when the same option is in several files the one
+of the **last** `--config` wins (`--config base.toml --config project.toml`). The layer has priority over the
+specificity: a common key of a later file beats the table of the command of an earlier file. Lists replace each other,
+they are not merged.
+
+A command can also have several options of this type (e.g. `--defaults` and `--overrides`). They are applied in the
+order in which they are declared, so the first one that gives a value to an option wins.
+
+**Required options.** An option that is required is satisfied by the file: it only fails if it is in neither the
+command line nor the file.
+
+**Values.** Text and numbers are the text that would be typed in the command line (`count = 5` is `"5"`), and are
+checked in the same way (`validValues`, directories that have to exist...). `true` and `false` are only for flags, and
+a list only for options that can be repeated (an empty list gives nothing). Tables inside a table are not supported.
+
+**Errors and warnings.**
+
+- A key in the table of the command that is not an option of the command is an error (it is probably a typo), and so is
+  the `config` option itself. The common keys that the command does not have are ignored.
+- A table that is not the name of a command of the application is only a warning.
+- A file that does not exist, cannot be read, has another extension, or is not valid TOML (the message says the line and
+  the column) is an error.
+
+Relative paths in the values are used as they are written, like in the command line (relative to the current directory).
+
+### Constructor
+
+```php
+new ConfigFile(string $longName, string $shortName = "")
+```
+
+Its description is `"Configuration file with values for the options (the command line has priority)"` and its label
+`file`, unless the definition gives others.
+
+### Methods
+
+| Method                                      | Returns    | Description                                                                                                  |
+|---------------------------------------------|------------|--------------------------------------------------------------------------------------------------------------|
+| `addParser(string $extension, FileParser $parser)` | `static` | Adds the parser of another format of file (by its extension), or replaces the one that there is. Fluent. |
+| `getExtensions()`                           | `string[]` | The extensions of the files that can be read (`toml` by default).                                            |
+| `getFiles()`                                | `string[]` | The files given in the command line, in order.                                                               |
+| `valuesFor(string $command, array $commands)` | `array`  | The layers (one per file, highest priority first), each with `file`, `section` (its table), `common`, and `unknownSections`. |
+
+A `FileParser` (`AppSupport\Config\FileParser`) has one method, `parse(string $contents): array`, that returns the keys
+of the file with their values (and the tables as arrays with names) or throws a `ConfigFileError`.
+`TomlFileParser` is the one of TOML.
+
+---
+
 ## OptionList
 
 `AppSupport\Console\OptionList` — Manages a collection of options for a command.
@@ -470,6 +578,7 @@ When `errorIfExist` is `true`, parsing fails if the directory already exists.
 | `isOption(array $args)`                         | `bool`              | Static. Returns `true` if the first element starts with `-`.                                        |
 | `findOption(string $key, bool $useLongName)`    | `Option`            | Looks up an option by long or short name. Logs critical error if not found.                         |
 | `configDefaults(Config $config)`                | `void`              | Writes all option defaults to the config.                                                           |
+| `setFromValues(array $values, Config $config, bool $strict, string $origin)` | `void` | Gives values (long name => value) to the options that have not been given, checking them like the ones of the command line. With `$strict` an option that does not exist is an error, and if not it is ignored. `$origin` is used in the messages. |
 | `checkRequired()`                               | `bool`              | Returns `true` if any required `Value` option has not been set. Logs errors for each missing one.   |
 
 ---

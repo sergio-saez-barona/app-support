@@ -131,6 +131,9 @@ abstract class Command extends CLIItem
             $this->optionList->parseOption($args, $this->config);
         }
 
+        // The values of the configuration files go to the options that were not in the command line
+        $this->applyConfigFiles();
+
         $argList = $this->argumentsList;
 
         // Parse provided arguments
@@ -193,10 +196,37 @@ abstract class Command extends CLIItem
      *  - a list [default, description, multiple?] (legacy positional format);
      *  - an associative array with the keys:
      *      description (string, required), default (string|null), required (bool),
-     *      multiple (bool), validValues (string[]), label (string).
+     *      multiple (bool), validValues (string[]), label (string), and type (string, one
+     *      of OPTION_TYPES: the kind of option, 'value' by default).
      *
      * @param array $definitions
      */
+    /**
+     * Gives values to the options from the configuration files that were in the command line (the options of type
+     * ConfigFile). The last file of the command line has priority, and in every file the table with the name of the
+     * command goes before the values that are not in a table. The options that already have a value (the command
+     * line is first) are not changed.
+     */
+    private function applyConfigFiles(): void
+    {
+        foreach ($this->optionList->getOptions() as $option) {
+            if (!($option instanceof ConfigFile) || !$option->isSet()) {
+                continue;
+            }
+
+            // The file that has priority goes first: an option that has a value is not changed by the next ones
+            foreach ($option->valuesFor($this->name, array_keys(app()->getCommands())) as $layer) {
+                foreach ($layer['unknownSections'] as $section) {
+                    Log::warning("Configuration file '{$layer['file']}': the table [{$section}] is not a command");
+                }
+
+                $origin = "the configuration file '{$layer['file']}'";
+                $this->optionList->setFromValues($layer['section'], $this->config, true, "{$origin} (table [{$this->name}])");
+                $this->optionList->setFromValues($layer['common'], $this->config, false, $origin);
+            }
+        }
+    }
+
     public function loadOptions(array $definitions): void
     {
         foreach ($definitions as $definitionKey => $definitionData) {
@@ -209,16 +239,38 @@ abstract class Command extends CLIItem
                 [$shortName, $longName] = explode('|', $definitionKey, 2);
             }
 
-            $definition = new Value($longName, $shortName);
-
             if (is_array($definitionData) && self::isAssociative($definitionData)) {
+                $definition = $this->createOption($definitionKey, $definitionData['type'] ?? 'value', $longName, $shortName);
                 $this->loadValueFromAssociative($definition, $definitionKey, $definitionData);
             } else {
+                $definition = new Value($longName, $shortName);
                 $this->loadValueFromPositional($definition, $definitionKey, $definitionData);
             }
 
             $this->getOptionList()->addOption($definition);
         }
+    }
+
+    /**
+     * The kinds of option that loadOptions() can create, by the value of the 'type' of the definition
+     */
+    public const OPTION_TYPES = [
+        'value' => Value::class,
+        'input-directory' => InputDirectory::class,
+        'output-directory' => OutputDirectory::class,
+        'config-file' => ConfigFile::class,
+    ];
+
+    private function createOption(string $key, mixed $type, string $longName, string $shortName): Value
+    {
+        if (!is_string($type) || !isset(self::OPTION_TYPES[$type])) {
+            $shown = is_string($type) ? $type : gettype($type);
+            Log::critical("Unknown type '$shown' in option '$key'. Expected: " . implode(", ", array_keys(self::OPTION_TYPES)));
+        }
+
+        $class = self::OPTION_TYPES[$type];
+
+        return new $class($longName, $shortName);
     }
 
     private static function isAssociative(array $array): bool
@@ -260,7 +312,7 @@ abstract class Command extends CLIItem
      */
     private function loadValueFromAssociative(Value $definition, string $key, array $data): void
     {
-        $allowed = ["description", "default", "required", "multiple", "validValues", "label"];
+        $allowed = ["description", "default", "required", "multiple", "validValues", "label", "type"];
         foreach (array_keys($data) as $field) {
             if (!in_array($field, $allowed, true)) {
                 Log::critical("Unknown field '$field' in option '$key'. Allowed: " . implode(", ", $allowed));
@@ -290,6 +342,9 @@ abstract class Command extends CLIItem
         }
 
         $default = $data["default"] ?? null;
+        if ($definition instanceof ConfigFile && $default !== null) {
+            Log::critical("Option '$key' of type 'config-file' cannot have a default value");
+        }
         if (!empty($data["required"])) {
             if ($default !== null) {
                 Log::critical("Option '$key' cannot be required and have a default value");

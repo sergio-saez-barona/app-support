@@ -4,7 +4,7 @@ A lightweight PHP library for building command-line applications. It provides co
 
 ## Requirements
 
-- PHP >= 8.0
+- PHP >= 8.2
 - `ext-mbstring`
 
 ## Installation
@@ -117,13 +117,29 @@ Options and flags are declared in bulk with `loadOptions()` and `loadFlags()` us
 ```php
 $this->loadOptions([
     's|policy' => ['description' => 'Policy', 'default' => 'fixed', 'validValues' => ['none', 'fixed', 'edf']],
-    'config'   => ['description' => 'Config file', 'required' => true],
+    'source'   => ['description' => 'Source file', 'required' => true],
 ]);
 $this->loadFlags([
     'v|verbose' => ['description' => 'Verbose output', 'default' => false],
 ]);
 ```
-See [Console Classes](doc/Console.md#loadoptions-format) for all fields.
+See [Console Classes](doc/Console.md#loadoptions-format) for all fields, and the `type` of an option (`input-directory`,
+`output-directory`, `config-file`).
+
+#### Configuration files
+An option of type `config-file` (`--config values.toml`) reads the values of the other options from a TOML file, so the
+options that are always the same do not have to be written every time. A table with the name of a command has its values
+(so one file can serve several commands), the command line has priority over the file, and an option that is required can
+be given by the file:
+
+```toml
+granularity = 1000       # common to the commands that have this option
+
+[gen-periodic]
+count = 20
+utilization = 0.8
+```
+See [ConfigFile](doc/Console.md#configfile).
 
 ### Service Container
 

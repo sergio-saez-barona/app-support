@@ -47,6 +47,7 @@ class Flag extends Option
         }
 
         $config->set($key, $value);
+        $this->isSet = true;
 
         return true;
     }

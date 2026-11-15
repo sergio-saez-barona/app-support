@@ -12,6 +12,9 @@ abstract class Option extends CLIItem
 
     protected bool $required = false;
 
+    /** Whether the option has been given, in the command line or in a configuration file */
+    protected bool $isSet = false;
+
     /**
      * Option constructor.
      * @param string $longName
@@ -68,6 +71,14 @@ abstract class Option extends CLIItem
         $this->required = $required;
 
         return $this;
+    }
+
+    /**
+     * Whether the option has been given, in the command line or in a configuration file
+     */
+    public function isSet(): bool
+    {
+        return $this->isSet;
     }
 
     /**
