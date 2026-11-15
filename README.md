@@ -151,6 +151,33 @@ The `Terminal` class provides static methods for colored output using ANSI escap
 - `env($key, $default)` — read environment variables with type coercion
 - `load_config($name)` — load a PHP configuration file
 
+## Utilities
+### php-bump-version
+Composer installs the program `php-bump-version` in the `vendor/bin` directory of the projects that use this package. It
+bumps the semantic version of a project (an application or a library built on this package), from its root directory:
+
+```bash
+vendor/bin/php-bump-version                # prints the current version
+vendor/bin/php-bump-version --patch        # 1.4.2 -> 1.4.3
+vendor/bin/php-bump-version --minor        # 1.4.2 -> 1.5.0
+vendor/bin/php-bump-version --major        # 1.4.2 -> 2.0.0
+```
+
+The current version is the `"version"` of `composer.json` (it has to be `MAJOR.MINOR.PATCH`). A bump writes the new one
+there and, if `config/app.php` exists, updates the `'version'` and the `'date'` of its `'info'` array (the date of
+today, as `YYYY-MM-DD`). Only those values change: the rest of the files, with their format and comments, stay as they are.
+
+| Option              | Description                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------|
+| `--major`, `--minor`, `--patch` | The bump level. Only one of them is allowed                                         |
+| `--sync`            | Without a bump level: copies the version of `composer.json` to `config/app.php` (the date changes only if the version there was another one) |
+| `--date YYYY-MM-DD` | The date to write, instead of today (the date of the time zone of PHP, see `date.timezone`)    |
+| `--dry-run`         | Shows what would change, without writing any file                                               |
+| `-h`, `--help`      | Shows the help                                                                                  |
+
+The files are not written if there is an error. `config/app.php` is read as PHP code (its tokens), so a `'version'` or
+a `'date'` that is not a plain string literal is reported and left as it is.
+
 ## Documentation
 
 Detailed documentation is available in the `doc/` directory:

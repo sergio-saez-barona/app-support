@@ -1,0 +1,26 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Bumps the version of a PHP project (composer.json and config/app.php). See --help.
+ *
+ * Composer installs it in vendor/bin of the projects that use this package.
+ */
+
+$autoloaders = [
+    $GLOBALS['_composer_autoload_path'] ?? null,    // the project, when Composer runs the program
+    __DIR__ . '/../../../autoload.php',             // installed as a dependency: vendor/ssaezba/appsupport/bin
+    __DIR__ . '/../vendor/autoload.php',            // this package on its own
+];
+foreach ($autoloaders as $autoloader) {
+    if ($autoloader !== null && file_exists($autoloader)) {
+        require $autoloader;
+        break;
+    }
+}
+if (!class_exists(\AppSupport\Tools\BumpVersionCli::class)) {
+    fwrite(STDERR, "error: Composer autoloader not found. Run 'composer install' first.\n");
+    exit(1);
+}
+
+exit((new \AppSupport\Tools\BumpVersionCli())->run(array_slice($argv, 1), getcwd()));
