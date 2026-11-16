@@ -80,8 +80,9 @@ final class ListCommandTest extends AppTestCase
 
         $this->assertSame('Other commands:', $lines[0]);
         $this->assertMatchesRegularExpression('/^  about /', $lines[1]);
-        $this->assertMatchesRegularExpression('/^  help /', $lines[2]);
-        $this->assertMatchesRegularExpression('/^  list /', $lines[3]);
+        $this->assertMatchesRegularExpression('/^  dump-config /', $lines[2]);
+        $this->assertMatchesRegularExpression('/^  help /', $lines[3]);
+        $this->assertMatchesRegularExpression('/^  list /', $lines[4]);
     }
 
     public function testNoOtherCommandsWhenEverythingIsInASection(): void
@@ -91,6 +92,7 @@ final class ListCommandTest extends AppTestCase
             'help' => \AppSupport\Console\Commands\HelpCommand::class,
             'list' => \AppSupport\Console\Commands\ListCommand::class,
             'about' => \AppSupport\Console\Commands\AboutCommand::class,
+            'dump-config' => \AppSupport\Console\Commands\DumpConfigCommand::class,
         ]]]]);
         $this->columns(120);
 
@@ -108,7 +110,7 @@ final class ListCommandTest extends AppTestCase
         $output = $this->runCommand(['list']);
 
         $this->assertStringContainsString('Available commands:', $output);
-        foreach (['alpha', 'zeta', 'help', 'list', 'about'] as $name) {
+        foreach (['alpha', 'zeta', 'help', 'list', 'about', 'dump-config'] as $name) {
             $this->assertMatchesRegularExpression("/^  {$name} /m", $output);
         }
     }

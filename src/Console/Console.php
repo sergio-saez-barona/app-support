@@ -27,6 +27,7 @@ class Console extends Container
         "help" => \AppSupport\Console\Commands\HelpCommand::class,
         "list" => \AppSupport\Console\Commands\ListCommand::class,
         "about" => \AppSupport\Console\Commands\AboutCommand::class,
+        "dump-config" => \AppSupport\Console\Commands\DumpConfigCommand::class,
     ];
 
     /**

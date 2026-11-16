@@ -72,7 +72,7 @@ final class SectionsTest extends AppTestCase
         $this->boot([]);
 
         $this->assertSame([], $this->console->getSections());
-        $this->assertSame(['help', 'list', 'about'], array_keys($this->console->getCommands()));
+        $this->assertSame(['help', 'list', 'about', 'dump-config'], array_keys($this->console->getCommands()));
     }
 
     /** @return array<string, array{array, string}> */

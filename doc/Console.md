@@ -65,13 +65,14 @@ The constructor:
 
 ### Built-in Commands
 
-Three commands are registered by default:
+Four commands are registered by default:
 
 | Name    | Class                   | Description                    |
 |---------|-------------------------|--------------------------------|
 | `help`  | `Commands\HelpCommand`  | Displays help for a command. The descriptions of the command, its arguments and its options are word-wrapped to the terminal width (at most 100 columns), keeping the columns of the help. If the label of an option or argument is longer than its column (e.g. `-m, --mutation <unchanged:modified> [required]`), the description starts in the next line. |
 | `list`  | `Commands\ListCommand`  | Lists all available commands. The descriptions of the sections and the commands are word-wrapped like the ones of `help`. |
 | `about` | `Commands\AboutCommand` | Shows application information (authors and description; a long `app.info.brief` is word-wrapped to the terminal width, at most 100 columns). |
+| `dump-config` | `Commands\DumpConfigCommand` | `dump-config [--force] <command> [file]` writes a template of a configuration file ([ConfigFile](#configfile)) for a command: its `[command]` table with, for each option, its description and its default value, all commented. Options with no default show their label as the value, and the ones that can be repeated a list. The `config-file` options and the arguments are not included. Without `file` it writes to the standard output; with it, the file must not exist unless `--force` is given. |
 
 Additional commands are loaded from the `console` configuration file (`config/console.php`), which must return an array
 with either a `commands` key (flat list) or a `sections` key (commands grouped by sections).
